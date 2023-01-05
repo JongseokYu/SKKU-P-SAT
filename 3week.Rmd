@@ -1,0 +1,418 @@
+---
+title: "3week"
+author: "Jongseok Yu"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+``````{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part1. Anomaly Dectection
+#### 1-0. 기본세팅(working directory, packages, date load)
+```{r}
+setwd("C:/Users/yjs49/Desktop/3week_package")
+
+library(tidyverse)
+library(data.table)
+library(magrittr)
+set.seed(2829)
+
+part1 <- fread("part1_data.csv")
+```
+
+#### 1-1. 데이터 파악,  NA 확인
+```{r}
+str(part1)
+```
+
+
+```{r}
+part1 %>%
+  is.na() %>%
+  colSums()
+```
+
+#### 1-2. VIM package를 통한 NA 패턴 시각화
+###### VIM package : 어떤 변수들의 조합 안에서 결측치나 극단치의 양, 각각의 변수에서 결측치나 극단치의 양을 그래프화 해주거나 계산해준다!
+###### sales, on_promotion, oil_price 순으로 NA값이 많다. combinations는 세가지 변수의 결측값 조합을 보여주는데, 세 항목이 모두 존재하는 경우가 1036건으로 가장 많고, sales와 onpromotion, 혹은 sales값만이 NA인 경우가 비교적 많음을 알 수 있다.
+```{r}
+library(VIM)
+
+part1 %>%
+  aggr(col = c("lavender", "lavenderblush"), prop = FALSE, number = TRUE, cex.lab = 1, cex.axis = 0.8, cex.number = 0.8)
+```
+
+#### 1-3. 세 변수의 분포 살피기(density plot)
+###### oil_price의 경우 값이 50에 집중되어 있고, 분포 형태는 불규칙하다.
+###### onpromotion의 경우 순차적으로 value가 커짐에 따라 대체적으로 density가 감소하는 모습을 보인다.
+###### sales는 정규분포와 유사한 density 양상을 보인다.
+```{r}
+part1 %>%
+  gather() %>%
+  ggplot(aes(x=value, col = key)) +
+  geom_density() +
+  facet_wrap(vars(key), scale = "free", ncol=3)+
+  scale_color_brewer(palette = "Dark2")+
+  theme_classic()+
+  theme(legend.position = "none")
+```
+
+#### 1-4. mean imputation 진행
+```{r}
+part1 %<>%
+  apply(2, function(x){
+    ifelse (is.na(x), mean(x, na.rm = TRUE), x)
+  })
+```
+
+
+```{r}
+part1 %>%
+  aggr(col = c("lavender", "lavenderblush"), prop = FALSE, number = TRUE, cex.lab = 1, cex.axis = 0.8, cex.number = 0.8)
+```
+
+#### 1-5. 세 변수를 모두 scale 함수로 표준화, 플랏으로 분포 확인
+```{r}
+part1 %<>%
+  scale() %>%
+  as.data.frame()
+
+
+part1 %>%
+  gather() %>%
+  ggplot(aes(x=value, col = key)) +
+  geom_density()
+
+```
+
+#### 1-6. boxplot 그려서 이상치 확인
+```{r}
+col <- hcl.colors(3, palette = "Cold")
+
+part1 %>%
+  gather() %>%
+  ggplot(aes(x = key, y = value, col = key))+ #boxplot의 경우 x값과 y값이 모두 지정되어야 한다! col도미리 지정해두기!
+  geom_boxplot()+
+  scale_color_manual(values = col)+ #겉에 테두리는 color로 바꿔주는 것!
+  theme_classic()
+```
+
+#### 1-7. train set과 test set 분리
+```{r}
+library(rsample)
+
+part1_split <- initial_split(part1, prop = 0.7)
+train <- training(part1_split)
+test <- testing(part1_split)
+```
+
+#### 1-8. Isolation Forest
+###### Isolation Tree는 이진 트리를 사용하여 밀도르 ㄹ기반으로 이상치를 탐지하는 기법이다. 정상데이터가 있는 부분을 고립시키기 위해서는 이진 트리를 통하여 더 많이 분할해야 하지만, 이상치가 있는 부분을 고립시키기 위해서는 비교적 적게 분할하면 된다는 아이디어를 이용한 것이다.
+###### Isolation Tree의 대표적인 파라미터로는 sample_size가 있다. Isolation Tree에서는 이상치를 탐지하기 위해 비복원 추출로 데이터를 선별하여 이진 트리를 통해 분할을 하게 되는데, 이때 샘플의 사이즈가 너무 크다면 트리의 깊이가 너무 깊어져 데이터를 고립시키기까지 많은 이진트리를 필요로 하거나, 트리의 깊이가 고정되어 있다면 분할된 최종 노드에 데이터들이 많이 저장되어 있어 이상치로 판별하지 않을 것이다. 반대로 샘플의 사이즈가 너무 작다면 이진트리로 분할할 때 데이터들이 빠르게 분할되어 이상치를 찾기 어려울 것이다. 따라서, 샘플 사이즈에 따라 모델의 성능이 좌우되기 때문에 적절한 샘플사이즈를 선택하는 것이 중요할 것이다.
+```{r}
+library(isotree)
+```
+
+```{r}
+iforest <- isolation.forest(train, sample_size = 64)
+```
+
+
+```{r}
+iso_result <- predict(iforest, test)
+iso_result
+```
+
+
+```{r}
+iso_result <- ifelse(iso_result >=0.6, 1, 0)
+table(iso_result)
+```
+
+#### 1-9. t-sne 시각화
+###### t-sne는 우리가 흔하게 접하게 되는 PCA와 같이 고차원의 데이터를 저차원(2차원)으로 축소하는 기법이고, 주로 벡터 시각화를 위해 사용한다. 각 데이터 간의 거리를 잘 보존하기 위하여 데이터를 확률형태의 유사도로 만든 후, 축소 후 데이터 간 유사도의 분포가 t분포를 따른다고 가정하여 이를 통해 높은 차원 공간에서 비슷한 데이터는 가깝게, 비슷하지 않은 데이터는 멀게 대응한다.
+###### t-sne는 perplexity라는 하이퍼 파라미터를 가지고, 이는 2^entropy의 값을 가지게 된다. entropy는 간략하게 확률분포(stochastic probability)가 얼마나 예측하기 어려운가에 대한 지표이다. 이 perplexity를 통해 영향력에 강도를 조절하게 된다.
+```{r}
+library(Rtsne)
+```
+
+
+```{r}
+tsne_result <- test %>%
+  Rtsne(dims=2, perplexity = 50, check_duplicates = FALSE) 
+result <- tsne_result$Y %>% as.data.frame
+```
+
+
+```{r}
+result$iso_result <- iso_result
+```
+
+
+```{r}
+head(result)
+```
+
+#### 1-10. k-means를 활용한 anomaly detection
+```{r}
+library(factoextra)
+library(cluster)
+library(gridExtra)
+```
+
+```{r}
+WSS <- train %>%
+  fviz_nbclust(FUNcluster = kmeans, method = "wss", linecolor = "aquamarine4")
+
+SIL <- train %>%
+  fviz_nbclust(FUNcluster = kmeans, method = "silhouette", linecolor = "aquamarine4")
+
+grid.arrange(WSS, SIL, ncol = 2)
+```
+
+
+```{r}
+residual <- kmeans(train, centers = 4, iter.max = 50, nstart = 1)
+residual
+```
+
+
+```{r}
+fviz_cluster(residual, data = train, geom = "point") +
+  theme_bw()+
+  ggtitle("k-means result")+
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))+
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = hcl.colors(4, palette = "cold"))+
+  scale_fill_manual(values = hcl.colors(4, palette = "cold"))
+```
+
+
+```{r}
+library(fdm2id)
+
+km_result <- predict(residual, test)
+
+km_predict <- cbind(test, km_result)
+```
+
+
+```{r}
+dist_value = NULL
+
+for (i in 1:4){
+  tmp <- km_predict %>%
+    filter(km_result == i) %>%
+    select(-km_result)
+  
+  for (j in 1:nrow(tmp)){
+    for_dist = rbind(residual$centers[i,], tmp[j,])
+    dist_value <- c(dist_value, dist(for_dist))
+  }
+}
+
+dist_value
+```
+
+
+```{r}
+hist(dist_value)
+```
+
+
+```{r}
+Q3 <- quantile(dist_value, 0.75)
+Q1 <- quantile(dist_value, 0.25)
+
+outlier_value <- Q3 + 1.5*(Q3-Q1)
+outlier_value
+```
+
+
+```{r}
+km_result <- ifelse(dist_value > outlier_value, 1, 0)
+```
+
+
+```{r}
+table(km_result)
+```
+
+#### 1-11. DBSCAN으로 이상치 탐지
+```{r}
+library(fpc)
+
+db <- train %>%
+  dbscan(eps = 0.7, MinPts = log(1139))
+```
+
+
+```{r}
+db %>%
+  fviz_cluster(train, geom = "point", outlier.color = "red")+
+  labs(title = "DBSCAN result") +
+  theme_bw()+
+  theme_bw()+
+  scale_fill_manual(values = "#5CBD92") +
+  scale_color_manual(values = "#5CBD92")+
+  theme(plot.title = element_text(hjust = 0.5,face='bold'))
+```
+
+
+```{r}
+db_result <- db %>%
+  predict.dbscan(train, test)
+
+db_result <- ifelse(db_result == 1, 0, 1)
+```
+
+#### 1-12. tsne 시각화
+```{r}
+result$kmeans <- km_result
+result$dbscan <- db_result
+```
+
+
+```{r}
+isf <- result %>%
+  ggplot(aes(x=V1, y=V2, col=as.factor(iso_result))) +
+  geom_point()+
+  scale_color_manual(values = c("#E8E5E5","#B5615B"))+
+  labs(title = "Isolation Forest")+
+  theme_bw()+
+  theme(legend.position = 'none',
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+kme <- result %>%
+  ggplot(aes(x=V1, y=V2, col=as.factor(kmeans))) +
+  geom_point()+ 
+  scale_color_manual(values = c("#E8E5E5","#B5615B"))+
+  labs(title = "K-means clustering")+
+  theme_bw()+
+  theme(legend.position = 'none',
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+dbs <- result %>%
+  ggplot(aes(x=V1, y=V2, col = as.factor(dbscan))) +
+  geom_point()+
+  scale_color_manual(values = c("#E8E5E5","#B5615B"))+
+  labs(title = "DBSCAN")+
+  theme_bw()+
+  theme(legend.position = 'none',
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+grid.arrange(isf, kme, dbs, ncol = 3,
+             top=textGrob("Anomaly Detection"))
+```
+
+###### t-sne를 통해 차원을 축소한 테스트 데이터에서 isolation forest, k-means clustering DBSCAN을 통해 outlier를 표시해두었음.이상치로 판단한 수가 다르다. K-means가 비교적 많은 데이터를 이상치로 판단했고, Isolation Forest, DBSCAN 순으로 적다.
+###### DBSCAN이 제외할 outlier 수가 가장 적기 때문에, 더 많은 데이터르 사용하여 데이터 분석을 진행할 수 있을 것임!
+
+## 2. 지도 시각화
+#### 0. 기본세팅
+```{r}
+library(ggmap)
+
+setwd("C:/Users/yjs49/Desktop/3week_package")
+part2 <- fread("part2_data.csv", encoding = "UTF-8")
+```
+
+#### 1. API키를 활용한 주소에 따른 위경도 호출
+```{r}
+my_key <- register_google(key='AIzaSyDkepuLu9q_rtAiyYXz-uc-1Ne8m20ZYg8')
+```
+
+#### 2. geocode함수를 활용하여 위경도 추출
+```{r}
+# gdata <- geocode(location = part2$'도로명주소', source = "google")
+setwd("C:/Users/yjs49/Desktop/3week_package")
+gdata <- fread("data_api.csv")
+```
+
+
+```{r}
+part2$lon <- gdata$lon
+part2$lat <- gdata$lat
+```
+
+
+```{r}
+colSums(is.na(part2))
+```
+
+
+```{r}
+part2 <- na.omit(part2)
+```
+
+#### 3. 시/도를 의미하는 addr1 변수, 시/군/구를 의미하는 addr2 변수 만들기
+```{r}
+part2$addr1 <- str_sub(part2$'도로명주소', 1, 2)
+
+part2$addr2 <- str_extract(part2$'도로명주소', '[\\w]+(시|군|구)')
+```
+
+
+```{r}
+sum(is.na(part2$addr2))
+```
+
+
+```{r}
+part2$addr1[is.na(part2$addr2)]
+```
+
+
+```{r}
+part2$addr2[is.na(part2$addr2)] <- "세종"
+```
+
+#### 4. tree map 시각화
+```{r}
+library(treemap)
+```
+
+
+```{r}
+treemap_part2 <- part2 %>%
+  group_by(addr1) %>%
+  summarize(count = n())
+
+treemap_part2 %>%
+  treemap(index = "addr1", vSize = "count", vColor = "count", type = "value", palette = "Spectral")
+```
+
+#### 5. 지도시각화
+```{r}
+setwd("C:/Users/yjs49/Desktop/3week_package")
+
+library(sf)
+library(rgdal)
+map_korea<-readOGR('CTPRVN_202101/TL_SCCO_CTPRVN.shp')
+map_korea<-map_korea %>% spTransform(CRS('+proj=longlat'))
+map_korea<-fortify(map_korea)
+```
+
+
+```{r}
+library(RColorBrewer)
+col <- brewer.pal(12, "Paired")
+col <- colorRampPalette(col)(20)
+
+ggplot()+
+  geom_polygon(map_korea, mapping = aes(x=long, y=lat, group = group), color = "grey", fill = "white") +
+  #group을 기준으로 polygon을 만드는 것이기에 꼭 설정해주어야 함!
+  geom_point(part2, mapping = aes(x=lon, y=lat, color = addr1), size = 0.5) +
+  #x,y축 이름이 다르게 설정된 것 확인!
+  scale_color_manual(values = col) +
+  theme_classic()+
+  ggtitle("전국 복권판매점 분포") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 7))
+```
+
