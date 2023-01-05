@@ -323,7 +323,7 @@ part2 <- fread("part2_data.csv", encoding = "UTF-8")
 
 #### 1. API키를 활용한 주소에 따른 위경도 호출
 ```{r}
-my_key <- register_google(key='AIzaSyDkepuLu9q_rtAiyYXz-uc-1Ne8m20ZYg8')
+my_key <- register_google(key='#받은 key 입력')
 ```
 
 #### 2. geocode함수를 활용하여 위경도 추출
