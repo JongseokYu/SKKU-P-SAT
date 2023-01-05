@@ -1,0 +1,192 @@
+---
+title: "1week_package"
+author: "Jongseok Yu"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 1. 전처리
+##### 1-0. 기본세팅
+```{r}
+setwd("C:/Users/yjs49/Desktop/1week_package")
+
+library(tidyverse)
+library(data.table)
+library(magrittr)
+data = fread("All Categories.csv")
+```
+
+##### 1-1. 데이터 구조 파악
+```{r}
+str(data)
+```
+
+##### 1-2. 변수별 NA 개수 확인, NA 제거
+```{r}
+colSums(is.na(data))
+```
+```{r}
+data %<>% filter(!is.na(`Star Rating`))
+```
+
+##### 1-3. 각 변수별 unique 개수 확인
+```{r}
+data %>%
+  summarize_all(n_distinct)
+```
+
+##### 1-4. 범주형 변수 변경 Category, Downloads, Rated for
+```{r}
+data %>%
+  distinct(Category)
+data %>%
+  distinct(Downloads)
+data %>%
+  distinct(`Rated for`)
+
+data <- data[!(data$Downloads == "1TCr+")]
+```
+
+```{r}
+data$Category <- as.factor(data$Category)
+data$Downloads <- as.factor(data$Downloads)
+data$`Rated for` <- as.factor(data$`Rated for`)
+```
+
+```{r}
+data$`Rated for` <- factor(data$`Rated for`, levels=c("3+","7+","12+","16+","18+"))
+data$Downloads <- factor(data$Downloads, levels=c("10T+", "50T+", "1L+", "5L+", "10L+", "50L+", "1Cr+", "5Cr+", "10Cr+",
+"50Cr+", "100Cr+", "500Cr+"))
+```
+
+##### 1-5. 수치형 변수 Review
+```{r}
+str_extract(data$Reviews, '[TLCr]')
+```
+
+
+```{r}
+data %<>%
+  mutate(review_to_num = ifelse(str_detect(Reviews,"T") == TRUE, as.numeric(substr(Reviews,1,nchar(Reviews)-1)) * 1000,
+                         ifelse(str_detect(Reviews,"L")==TRUE, as.numeric(substr(Reviews,1,nchar(Reviews)-1)) * 100000,
+                         ifelse(str_detect(Reviews,"Cr")==TRUE, as.numeric(substr(Reviews,1,nchar(Reviews)-2)) * 10000000,
+                         as.numeric(Reviews)))))
+```
+
+##### 1-6. 수치형 변수 Size
+```{r}
+str_extract(data$Size, "[MKB]")
+```
+
+```{r}
+data[is.na(str_extract(data$Size, "[MKB]"))]
+```
+
+```{r}
+data <- data[!(data$Size == "Teacher Approved")]
+```
+
+```{r}
+nrow(data[str_detect(data$Size,"KB")])
+```
+
+```{r}
+nrow(data[str_detect(data$Size,"MB")])
+```
+
+```{r}
+data %<>%
+  mutate(Size = ifelse(str_detect(Size,"KB") == TRUE, as.numeric(substr(Size,1,nchar(Size)-2)) / 1024,
+                       as.numeric(substr(Size,1,nchar(Size)-2))))
+```
+
+##### 1-7. 시각화 사전 준비
+```{r}
+data %>%
+  group_by(Category) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>%
+  head(6)
+```
+
+```{r}
+top6_df <- data %>%
+  filter(Category=='Tools'|Category=='Finance'|Category=='Entertainment'|Category=='Social'|Category=='Shopping'|Category=='Productivity')
+```
+
+```{r}
+top6_df
+
+top6_df %>%
+  group_by(Category) %>%
+  summarise(n = n())
+```
+
+##### 2-1. 시각화 1
+```{r}
+top6_df %>%
+  group_by(Category) %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x=reorder(Category,-count), y=count, fill=Category)) +
+  geom_bar(stat='identity')+
+  theme_classic()+
+  labs(title = "카테고리 당 어플 수")+
+  xlab("Category") + ylab("개수")+
+  theme(plot.title = element_text(hjust=0.5, face = "bold"))+
+  scale_fill_manual(values = c('grey','grey','grey','grey','grey','goldenrod1'))+
+  theme(legend.position='none')
+```
+##### 2-2. 시각화 2
+```{r}
+top6_df %>%
+  group_by(Category) %>%
+  summarize(rating=round(mean(`Star Rating`),2)) %>%
+  ggplot(aes(x=reorder(Category,+rating), y=rating, fill=Category)) +
+  geom_bar(stat='identity', alpha=0.3)+
+  coord_flip()+
+  theme_classic()+
+  geom_label(aes(label = rating, hjust=1.5), fill='white', color='grey')+
+  labs(title = "카테고리 별 평점 평균")+
+  xlab("")+
+  ylab("평균 평점") +
+  theme(plot.title = element_text(hjust=0.5, face = "bold", size=15), axis.title = element_text(size = 10))+
+  scale_fill_manual(values = c("#4878A1","#8AA8AF", "#E7CFC5","#F4BAAB","#D8959E","#7B7092"))+
+  theme(legend.position='none')
+```
+
+##### 2-3. 시각화 3
+```{r}
+top6_df %>%
+  ggplot(aes(x = `Rated for`, fill=Category))+
+  geom_bar(position='fill', alpha=0.7)+
+  theme_bw()+
+  labs(title = "연령 등급 별 Category 비율",
+       subtitle = "상위 6개 Category 대상")+
+  theme(plot.title = element_text(face = "bold"))+
+  theme(plot.subtitle = element_text(color = "grey"))+
+  theme(legend.position = "bottom")+
+  scale_fill_brewer(palette = "Dark2")
+```
+
+##### 2-4. 시각화 4
+```{r}
+max_ratio <- max(data$review_to_num) / max(data$`Star Rating`)
+max_ratio
+```
+
+```{r}
+data %>%
+  ggplot(aes(x=Rank))+
+  geom_line(aes(y=review_to_num), color = "#4878A1")+
+  geom_line(aes(y= `Star Rating` * max_ratio), color = "#D8959E")+
+  scale_y_continuous(name="리뷰 수",
+                     sec.axis = sec_axis(trans=~./max_ratio, name = "평점"))+
+  theme_bw()+
+  theme(legend.position='none',
+        axis.title.y.left = element_text(color="#4878A1"),
+        axis.title.y.right = element_text(color="#D8959E"))
+```
