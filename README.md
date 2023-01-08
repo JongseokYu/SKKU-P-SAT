@@ -12,4 +12,4 @@
 5. R_1week : Preprocessing and Graph Visualization
 6. R_2week : Time Series CV using Catboost Modeling for Prediction
 7. R_3week : Anomaly detection and Map Visualization
-8. additional : Linear Regression, Ridge Regression, Light GBM modeling and comparing the performance
+8. additional1 : Linear Regression, Ridge Regression, Light GBM modeling and comparing the performance
