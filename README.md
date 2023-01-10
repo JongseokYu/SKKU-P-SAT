@@ -7,7 +7,7 @@ and a team leader of Regression Analysis in 2022-2nd semester
 
 solved the weekly coding problem.
 
-# Problem Explantation
+# Problem Explanation
 1. P_Oweek : Using API and Crawling
 2. P_1week : Catboost Modeling and Parameter Tuning for Classification
 3. P_2week : Dog and Cat Image Classification using CNN
