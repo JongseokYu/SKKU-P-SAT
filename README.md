@@ -1,9 +1,9 @@
 # SKKU-P-SAT
 Sungkyunkwan University Statistical Analytixs Club P-SAT 29th
 
-as 2022-1 semester Team Linear Algebra team memeber,
+as a team member of Linear Algebra in 2022-1st semester,
 
-2022-2 semester Team Regression Analysis team leader
+and a team leader of Regression Analysis in 2022-2nd semester
 
 solved the weekly coding problem.
 
