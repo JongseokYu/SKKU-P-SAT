@@ -1,10 +1,10 @@
 # SKKU-P-SAT
-성균관대학교 통계분석학회 P-SAT 29기
-2022-1학기 선형대수학팀 팀원,
-2022-2학기 회귀분석팀 팀장으로 활동하며
+Sungkyunkwan University Statistical Analytixs Club P-SAT 29th
+2022-1 semester 선형대수학팀 팀원,
+2022-2 semester 로 활동하며
 주차별 코딩 문제를 해결하였습니다.
 
-# 문제 설명
+# Problem Explantation
 1. P_Oweek : Using API and Crawling
 2. P_1week : Catboost Modeling and Parameter Tuning for Classification
 3. P_2week : Dog and Cat Image Classification using CNN
