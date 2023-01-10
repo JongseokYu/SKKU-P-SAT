@@ -1,8 +1,11 @@
 # SKKU-P-SAT
 Sungkyunkwan University Statistical Analytixs Club P-SAT 29th
-2022-1 semester 선형대수학팀 팀원,
-2022-2 semester 로 활동하며
-주차별 코딩 문제를 해결하였습니다.
+
+as 2022-1 semester Team Linear Algebra team memeber,
+
+2022-2 semester Team Regression Analysis team leader
+
+solved the weekly coding problem.
 
 # Problem Explantation
 1. P_Oweek : Using API and Crawling
