@@ -1,5 +1,5 @@
 # SKKU-P-SAT
-Sungkyunkwan University Statistical Analytixs Club P-SAT 29th
+Sungkyunkwan University Statistical Analytics Club P-SAT 29th
 
 as a team member of Linear Algebra in 2022-1st semester,
 
